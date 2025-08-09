@@ -1,13 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <script src="/static/script.js" defer></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Home</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/script.js" defer></script>
 </head>
 <body>
     <div class="dashboard">
-        <h2>Welcome, {{name}} 👋</h2>
+        <h2>Welcome, {{ name }}</h2>
         <a href="/predict"><button>Start Gesture Recognition</button></a>
         <a href="/logout"><button>Logout</button></a>
     </div>

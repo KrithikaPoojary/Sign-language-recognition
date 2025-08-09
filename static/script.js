@@ -2,6 +2,8 @@
 
 document.addEventListener("DOMContentLoaded", function () {
     // Highlight active buttons on hover
+    // Note: The CSS handles this with :hover and :active, so this JS block can be simplified or removed.
+    // We will keep it for now as a different hover effect.
     let buttons = document.querySelectorAll("button");
     buttons.forEach(btn => {
         btn.addEventListener("mouseover", () => {
@@ -74,9 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         predictionDiv.innerText = "Error: " + data.error;
                         predictionDiv.style.color = 'red';
                     } else {
-                        // Display prediction only if confidence is above a threshold
-                        // Or if no hand is detected
-                        if (data.label === "No Hand Detected" || (data.confidence && data.confidence < 0.7)) { // Example threshold
+                        if (data.label === "No Hand Detected" || (data.confidence && data.confidence < 0.7)) {
                             predictionDiv.innerText = "Waiting for confident gesture...";
                             predictionDiv.style.color = 'orange';
                         } else {
