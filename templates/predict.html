@@ -12,9 +12,9 @@
         background-color: #000;
     }
     #prediction {
-        font-size: 28px;
+        font-size: 19px;
         margin-top: 20px;
-        color: green;
+        color: black;
         font-weight: bold;
     }
     .predict-container {
@@ -28,12 +28,13 @@
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         max-width: fit-content;
     }
+
 </style>
 
 </head>
 <body>
     <div class="predict-container">
-        <h2>Welcome, {{ name }}!</h2>
+        <h4>Welcome, {{ name }}!</h2>
         <h3>Webcam window opened. Perform your gesture!</h3>
         <video id="video" autoplay playsinline></video> <div id="prediction">Waiting for gesture...</div>
         <a href="/home"><button>Back to Home</button></a>
