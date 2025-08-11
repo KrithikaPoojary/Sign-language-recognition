@@ -18,13 +18,13 @@ data_dir = "data" # Directory where gesture data is stored and labels are derive
 
 # --- Auto-train if model doesn't exist ---
 if not os.path.exists(model_path):
-    print("⚠️ gesture_model.h5 not found. Training model now...")
+    print("gesture_model.h5 not found. Training model now...")
     result = subprocess.run(["python", "train_model.py"], capture_output=True, text=True, check=False)
     if result.returncode != 0:
         print(f"Error training model: {result.stderr}")
         print(f"Stdout: {result.stdout}")
     else:
-        print("✅ Model trained and saved!")
+        print("Model trained and saved!")
         print(f"Stdout: {result.stdout}")
 
 # Load the trained model and labels

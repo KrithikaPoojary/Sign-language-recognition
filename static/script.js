@@ -3,7 +3,7 @@
 document.addEventListener("DOMContentLoaded", function () {
     // Highlight active buttons on hover
     // Note: The CSS handles this with :hover and :active, so this JS block can be simplified or removed.
-    // We will keep it for now as a different hover effect.
+    // We will keep it for now as a different hover effects.
     let buttons = document.querySelectorAll("button");
     buttons.forEach(btn => {
         btn.addEventListener("mouseover", () => {

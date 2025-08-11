@@ -76,6 +76,30 @@ body {
     0% { transform: rotate(25deg) translateX(-100%); }
     100% { transform: rotate(25deg) translateX(100%); }
 }
+.form-input-group {
+    position: relative;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.form-input-group .icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    font-size: 16px;
+    pointer-events: none; /* so clicks pass through to input */
+}
+
+.form-input-group input {
+    width: 100%;
+    padding: 12px 12px 12px 40px; /* extra left padding for icon */
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
 
 /* Inputs & buttons */
 input, button {
@@ -181,6 +205,8 @@ input:focus {
     outline: none;
     box-shadow: 0 0 5px rgba(37, 117, 252, 0.3);
 }
+
+
 
 /* Buttons */
 button {
