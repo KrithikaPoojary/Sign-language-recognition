@@ -24,7 +24,7 @@ body {
 .form-container, .dashboard, .predict-container {
     margin: 50px auto;
     padding: 30px 25px;
-    width: 320px;
+    width: 350px;
     background: linear-gradient(135deg, #ffffffcc, #f9f9f9cc);
     border-radius: 20px;
     box-shadow: 
