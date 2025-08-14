@@ -235,7 +235,6 @@ button:hover {
 
 /* Links */
 a {
-    display: inline-block;
     margin-top: 15px;
     color: #2575fc;
     text-decoration: none;
