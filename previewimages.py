@@ -11,8 +11,8 @@ for i in range(1, 6):
             cv2.imshow("Image Preview", img)
             cv2.waitKey(500)
         else:
-            print(f"⚠️ Unable to read {img_path}")
+            print(f"Unable to read {img_path}")
     else:
-        print(f"❌ File not found: {img_path}")
+        print(f" File not found: {img_path}")
 
 cv2.destroyAllWindows()
