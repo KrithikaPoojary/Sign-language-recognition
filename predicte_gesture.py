@@ -1,7 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model # type: ignore
 import os
 
 # Load trained model
