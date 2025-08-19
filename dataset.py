@@ -105,10 +105,10 @@ def collect_gesture_data():
                             cv2.imwrite(img_path, resized)
                             count += 1
                         except cv2.error as e:
-                            print(f"⚠️ Could not save image: {e}")
+                            print(f"Could not save image: {e}")
                     else:
                         start_saving = False
-                        print(f"✅ Target {TOTAL_IMAGES_PER_GESTURE} images reached for '{gesture_name}'.")
+                        print(f" Target {TOTAL_IMAGES_PER_GESTURE} images reached for '{gesture_name}'.")
 
         # Overlay text
         status_text = f"Collected: {count}/{TOTAL_IMAGES_PER_GESTURE}"
