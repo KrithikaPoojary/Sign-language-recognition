@@ -18,15 +18,39 @@
         font-weight: bold;
     }
     .predict-container {
-        flex-direction: column;
-        align-items: center;
-        margin: 20px auto;
-        padding: 20px;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        max-width: fit-content;
+    display: flex;              /*  activates flexbox */
+    flex-direction: column;     /* stack children vertically */
+    align-items: center;        /* center children horizontally */
+    justify-content: center;    /* center children vertically */
+    
+    margin: 20px auto;          /* center container horizontally */
+    padding: 20px;              /* space inside box */
+    background: white;          /* card-style background */
+    border-radius: 10px;        /* rounded corners */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  /* subtle shadow */
+    
+    max-width: 90%;             /* don’t let it stretch full width */
+    width: fit-content;         /* shrink to fit content on desktop */
+}
+video {
+    width: 100%;                /* scale video with container */
+    max-width: 800px;           /* limit maximum size */
+    height: auto;               /* maintain aspect ratio */
+    border: 2px solid black;
+    border-radius: 8px;
+}
+
+/* Responsive tweaks for small screens */
+@media (max-width: 768px) {
+    .predict-container {
+        max-width: 100%;        /* take full width on small screens */
+        padding: 15px;
     }
+
+    video {
+        max-width: 100%;        /* make webcam fit smaller screens */
+    }
+}
 
 </style>
 

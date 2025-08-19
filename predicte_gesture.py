@@ -4,11 +4,12 @@ import numpy as np
 from tensorflow.keras.models import load_model # type: ignore
 import os
 
+
 # Load trained model
 model = load_model('gesture_model.h5')
 
 # Manually define class labels (in order of training)
-labels = ['hello', 'thank_you', 'namaste']  # Add more if needed
+labels = ['hello', 'thank_you', 'namaste','yes','namaste','together','wrong','nice']  # Add more if needed
 
 # Initialize MediaPipe for hand tracking
 mp_hands = mp.solutions.hands
