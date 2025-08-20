@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, redirect, session, jsonify
 import sqlite3
 import os
 import subprocess
-from tensorflow.keras.models import load_model # type: ignore
+import json
+from tensorflow.keras.models import load_model  # type: ignore
 import numpy as np
 import cv2
 import base64
@@ -11,10 +12,10 @@ import io
 import mediapipe as mp
 
 app = Flask(__name__)
-app.secret_key = "secret123" # In a real app, use a strong, environment variable for this
+app.secret_key = "secret123"  # ⚠️ In production, use a strong env variable
 db_path = "users.db"
 model_path = "gesture_model.h5"
-data_dir = "data" # Directory where gesture data is stored and labels are derived
+labels_path = "labels.json"
 
 # --- Auto-train if model doesn't exist ---
 if not os.path.exists(model_path):
@@ -33,10 +34,14 @@ labels = []
 try:
     if os.path.exists(model_path):
         model = load_model(model_path)
-        if os.path.exists(data_dir):
-            labels = sorted(os.listdir(data_dir))
-            labels = [label for label in labels if os.path.isdir(os.path.join(data_dir, label))]
-        print(f"Loaded model with labels: {labels}")
+
+        # ✅ Load labels from JSON
+        if os.path.exists(labels_path):
+            with open(labels_path, "r") as f:
+                labels = json.load(f)
+            print(f"Loaded labels: {labels}")
+        else:
+            raise FileNotFoundError("labels.json not found. Please run train_model.py again.")
     else:
         print("Model file not found after attempted training.")
 except Exception as e:
@@ -124,10 +129,8 @@ def predict_frame():
 
         img_rgb_mp = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
 
-        # --- Instantiate processors for each request ---
-        # This is the key change to avoid timestamp issues
         with mp.solutions.hands.Hands(
-            static_image_mode=True, # Important for processing discrete images
+            static_image_mode=True,
             max_num_hands=1,
             min_detection_confidence=0.7,
             min_tracking_confidence=0.7
@@ -138,7 +141,6 @@ def predict_frame():
             model_selection=1
         ) as selfie_segmentation_processor:
             segmentation_results = selfie_segmentation_processor.process(img_rgb_mp)
-        # --- End of key change ---
 
         condition = np.stack((segmentation_results.segmentation_mask,) * 3, axis=-1) > 0.1
         black_background = np.zeros(img_np.shape, dtype=np.uint8)
@@ -162,23 +164,23 @@ def predict_frame():
 
                 hand_img_cropped = segmented_frame[y_min:y_max, x_min:x_max]
 
-                if hand_img_cropped.size > 0 and hand_img_cropped.shape[0] > 0 and hand_img_cropped.shape[1] > 0:
+                if hand_img_cropped.size > 0:
                     TARGET_IMAGE_SIZE = 64
                     img_resized = cv2.resize(hand_img_cropped, (TARGET_IMAGE_SIZE, TARGET_IMAGE_SIZE))
                     img_normalized = img_resized / 255.0
                     img_input = np.expand_dims(img_normalized, axis=0)
 
-                    prediction = model.predict(img_input, verbose=0) # Added verbose=0 to silence prediction output
+                    prediction = model.predict(img_input, verbose=0)
                     predicted_class_index = np.argmax(prediction)
                     confidence = float(np.max(prediction))
 
-                    if 0 <= predicted_class_index < len(labels):
+                    if confidence > 0.7 and 0 <= predicted_class_index < len(labels):
                         predicted_label = labels[predicted_class_index]
                     else:
-                        predicted_label = "Unknown Label"
+                        predicted_label = "Not confident"
                 else:
                     predicted_label = "Hand Cropping Failed"
-        
+
         return jsonify({'label': predicted_label, 'confidence': confidence})
 
     except Exception as e:

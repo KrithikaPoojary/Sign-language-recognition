@@ -1,41 +1,46 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from tensorflow.keras.models import load_model # type: ignore
-import os
+import json
+from tensorflow.keras.models import load_model
 
-
-# Load trained model
+# Load model and labels
 model = load_model('gesture_model.h5')
+with open("labels.json", "r") as f:
+    labels = json.load(f)
 
-# Manually define class labels (in order of training)
-labels = ['hello', 'thank_you', 'namaste','yes','namaste','together','wrong','nice']  # Add more if needed
-
-# Initialize MediaPipe for hand tracking
+# Initialize MediaPipe
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1)
+hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1,
+                       min_detection_confidence=0.7, min_tracking_confidence=0.7)
 mp_draw = mp.solutions.drawing_utils
 
-# Start webcam
+# Optional: Background segmentation
+mp_selfie_segmentation = mp.solutions.selfie_segmentation
+selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
+
 cap = cv2.VideoCapture(0)
 print("📷 Starting webcam for real-time prediction...")
 
 while True:
     ret, frame = cap.read()
     if not ret:
-        print("Failed to grab frame")
         break
 
-    # Flip frame horizontally and convert color
     frame = cv2.flip(frame, 1)
     h, w, _ = frame.shape
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # Remove background
+    segmentation_results = selfie_segmentation.process(rgb)
+    condition = np.stack((segmentation_results.segmentation_mask,) * 3, axis=-1) > 0.1
+    black_bg = np.zeros(frame.shape, dtype=np.uint8)
+    segmented_frame = np.where(condition, frame, black_bg)
 
     result = hands.process(rgb)
 
     if result.multi_hand_landmarks:
         for hand_landmarks in result.multi_hand_landmarks:
-            # Get bounding box
             x_min = min([lm.x for lm in hand_landmarks.landmark])
             y_min = min([lm.y for lm in hand_landmarks.landmark])
             x_max = max([lm.x for lm in hand_landmarks.landmark])
@@ -46,8 +51,7 @@ while True:
             x2 = min(w, int(x_max * w) + 20)
             y2 = min(h, int(y_max * h) + 20)
 
-            # Crop and preprocess the hand image
-            hand_img = frame[y1:y2, x1:x2]
+            hand_img = segmented_frame[y1:y2, x1:x2]
             if hand_img.size == 0:
                 continue
 
@@ -55,35 +59,27 @@ while True:
             hand_img = hand_img / 255.0
             hand_img = np.expand_dims(hand_img, axis=0)
 
-            # Predict gesture
-            prediction = model.predict(hand_img)
+            prediction = model.predict(hand_img, verbose=0)
             pred_class = np.argmax(prediction)
-            pred_label = labels[pred_class]
             confidence = np.max(prediction)
 
-            print(f"Predicted: {pred_label}, Confidence: {confidence:.2f}")
-
-            # Draw bounding box
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-
-            # Show label only if confidence > threshold
             if confidence > 0.7:
-                cv2.putText(frame, f"{pred_label} ({confidence*100:.1f}%)",
-                            (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                            (0, 255, 0), 2)
+                pred_label = labels[pred_class]
+                text = f"{pred_label} ({confidence*100:.1f}%)"
+                color = (0, 255, 0)
             else:
-                cv2.putText(frame, "Not Confident",
-                            (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                            (0, 0, 255), 2)
+                text = "Not confident"
+                color = (0, 0, 255)
 
-            # Draw landmarks
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(frame, text, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+
             mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-    # Display frame
     cv2.imshow("Sign Language Detection", frame)
 
-    # Press ESC to exit
-    if cv2.waitKey(1) & 0xFF == 27:
+    if cv2.waitKey(1) & 0xFF == 27:  # ESC to exit
         break
 
 cap.release()

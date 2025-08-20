@@ -3,19 +3,28 @@ import os
 import time
 import mediapipe as mp
 import numpy as np
+import json
 
 # --- Configuration ---
-DATA_DIR = "data"                   # Folder where datasets are stored
-TARGET_IMAGE_SIZE = 64              # Size of saved images
-TOTAL_IMAGES_PER_GESTURE = 50       # 👈 Only 50 images per gesture
-BOUNDING_BOX_MARGIN = 30            # Padding around detected hands
-COUNTDOWN_SECONDS = 3               # Countdown before saving starts
+DATA_DIR = "data"
+LABELS_FILE = "labels.json"
+TARGET_IMAGE_SIZE = 64
+TOTAL_IMAGES_PER_GESTURE = 50
+BOUNDING_BOX_MARGIN = 30
+COUNTDOWN_SECONDS = 3
 
-# Initialize MediaPipe Hand detector (allow 2 hands)
+# Load existing labels if available
+if os.path.exists(LABELS_FILE):
+    with open(LABELS_FILE, "r") as f:
+        labels = json.load(f)
+else:
+    labels = []
+
+# Initialize MediaPipe Hand detector
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
     static_image_mode=False,
-    max_num_hands=2,   # detect both hands
+    max_num_hands=2,
     min_detection_confidence=0.7,
     min_tracking_confidence=0.7
 )
@@ -26,7 +35,7 @@ mp_selfie_segmentation = mp.solutions.selfie_segmentation
 selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
 
 def collect_gesture_data():
-    """Collects images for one gesture (works with one or two hands)."""
+    """Collects images for one gesture and updates labels.json."""
 
     # Ask user for gesture label
     gesture_name = ""
@@ -37,6 +46,13 @@ def collect_gesture_data():
 
     gesture_path = os.path.join(DATA_DIR, gesture_name)
     os.makedirs(gesture_path, exist_ok=True)
+
+    # Update labels.json if new gesture
+    if gesture_name not in labels:
+        labels.append(gesture_name)
+        with open(LABELS_FILE, "w") as f:
+            json.dump(labels, f)
+        print(f"✅ Added '{gesture_name}' to {LABELS_FILE}")
 
     # Count existing images
     existing_images = len([f for f in os.listdir(gesture_path) if f.endswith(".jpg")])
@@ -78,7 +94,6 @@ def collect_gesture_data():
             h, w, _ = frame.shape
             x_coords, y_coords = [], []
 
-            # Collect all coords for both hands
             for hand_landmarks in hand_results.multi_hand_landmarks:
                 mp_draw.draw_landmarks(display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
                 x_coords.extend([lm.x for lm in hand_landmarks.landmark])
@@ -94,7 +109,6 @@ def collect_gesture_data():
 
                 cv2.rectangle(display_frame, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
 
-                # Crop both hands together
                 hand_img_raw = segmented_frame[y_min:y_max, x_min:x_max]
 
                 if start_saving and hand_img_raw.size > 0:
@@ -108,7 +122,7 @@ def collect_gesture_data():
                             print(f"Could not save image: {e}")
                     else:
                         start_saving = False
-                        print(f" Target {TOTAL_IMAGES_PER_GESTURE} images reached for '{gesture_name}'.")
+                        print(f"🎯 Target {TOTAL_IMAGES_PER_GESTURE} images reached for '{gesture_name}'.")
 
         # Overlay text
         status_text = f"Collected: {count}/{TOTAL_IMAGES_PER_GESTURE}"
