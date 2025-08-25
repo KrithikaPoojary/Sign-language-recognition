@@ -1,66 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="/static/script.js" defer></script>
-    <title>Gesture Recognition</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <style>
-    video {
-        border: 2px solid black;
-        width: 640px;
-        height: 480px;
-        background-color: #000;
-    }
-    #prediction {
-        font-size: 19px;
-        margin-top: 20px;
-        color: black;
-        font-weight: bold;
-    }
-    .predict-container {
-    display: flex;              /*  activates flexbox */
-    flex-direction: column;     /* stack children vertically */
-    align-items: center;        /* center children horizontally */
-    justify-content: center;    /* center children vertically */
-    
-    margin: 20px auto;          /* center container horizontally */
-    padding: 20px;              /* space inside box */
-    background: white;          /* card-style background */
-    border-radius: 10px;        /* rounded corners */
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  /* subtle shadow */
-    
-    max-width: 90%;             /* don’t let it stretch full width */
-    width: fit-content;         /* shrink to fit content on desktop */
-}
-video {
-    width: 100%;                /* scale video with container */
-    max-width: 800px;           /* limit maximum size */
-    height: auto;               /* maintain aspect ratio */
-    border: 2px solid black;
-    border-radius: 8px;
-}
-
-/* Responsive tweaks for small screens */
-@media (max-width: 768px) {
-    .predict-container {
-        max-width: 100%;        /* take full width on small screens */
-        padding: 15px;
-    }
-
-    video {
-        max-width: 100%;        /* make webcam fit smaller screens */
-    }
-}
-
-</style>
-
+  <title>Hand Gesture Recognition</title>
 </head>
 <body>
-    <div class="predict-container">
-        <h4>Welcome, {{ name }}!</h4>
-        <h5>Webcam window opened. Perform your gesture!</h5>
-        <video id="video" autoplay playsinline></video> <div id="prediction">Waiting for gesture...</div>
-        <a href="/home"><button>Back to Home</button></a>
-    </div>
+  <h2>Hand Gesture Recognition</h2>
+  <p>Webcam window opened. Perform your gesture!</p>
+
+  <video id="video" width="400" height="300" autoplay></video>
+  <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
+
+  <div>
+    <h3>Prediction: <span id="label"></span></h3>
+    <h4>Confidence: <span id="confidence"></span></h4>
+    <h4>Cropped Hand:</h4>
+    <img id="cropped-preview" style="border:1px solid #000; width:100px; height:100px;" />
+  </div>
+
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // start webcam
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { video.srcObject = stream; });
+
+    function captureFrame() {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg");
+
+      fetch("/predict_frame", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUrl })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          console.error(data.error);
+        } else {
+          document.getElementById("label").innerText = data.label;
+          document.getElementById("confidence").innerText = (data.confidence * 100).toFixed(2) + "%";
+
+          if (data.cropped) {
+            document.getElementById("cropped-preview").src = "data:image/jpeg;base64," + data.cropped;
+          }
+        }
+      })
+      .catch(err => console.error("Fetch error:", err));
+    }
+
+    // capture every 1 second
+    setInterval(captureFrame, 1000);
+  </script>
 </body>
 </html>

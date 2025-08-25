@@ -1,88 +1,95 @@
 import cv2
-import mediapipe as mp
 import numpy as np
-from tensorflow.keras.models import load_model # type: ignore
-import os
+import tensorflow as tf
+import mediapipe as mp
+import json
 
+# -------------------------------
+# Load trained model + labels
+# -------------------------------
+MODEL_PATH = "mobilenet_gesture.h5"
+LABELS_JSON = "labels.json"
 
-# Load trained model
-model = load_model('gesture_model.h5')
+# Load model
+model = tf.keras.models.load_model(MODEL_PATH)
 
-# Manually define class labels (in order of training)
-labels = ['hello', 'thank_you', 'namaste','yes','namaste','together','wrong','nice']  # Add more if needed
+# Load labels (force string keys for safety)
+with open(LABELS_JSON, "r") as f:
+    labels = json.load(f)
+labels = {str(k): v for k, v in labels.items()}
 
-# Initialize MediaPipe for hand tracking
+IMG_SIZE = 128
+
+# -------------------------------
+# MediaPipe Hands
+# -------------------------------
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1)
-mp_draw = mp.solutions.drawing_utils
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=1,
+    min_detection_confidence=0.6,
+    min_tracking_confidence=0.6
+)
+mp_drawing = mp.solutions.drawing_utils
 
-# Start webcam
+# -------------------------------
+# Webcam loop
+# -------------------------------
 cap = cv2.VideoCapture(0)
-print("📷 Starting webcam for real-time prediction...")
 
 while True:
     ret, frame = cap.read()
     if not ret:
-        print("Failed to grab frame")
         break
 
-    # Flip frame horizontally and convert color
-    frame = cv2.flip(frame, 1)
-    h, w, _ = frame.shape
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = hands.process(rgb)
 
-    result = hands.process(rgb)
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            h, w, _ = frame.shape
+            x_coords = [lm.x * w for lm in hand_landmarks.landmark]
+            y_coords = [lm.y * h for lm in hand_landmarks.landmark]
 
-    if result.multi_hand_landmarks:
-        for hand_landmarks in result.multi_hand_landmarks:
-            # Get bounding box
-            x_min = min([lm.x for lm in hand_landmarks.landmark])
-            y_min = min([lm.y for lm in hand_landmarks.landmark])
-            x_max = max([lm.x for lm in hand_landmarks.landmark])
-            y_max = max([lm.y for lm in hand_landmarks.landmark])
+            xmin, xmax = int(min(x_coords)), int(max(x_coords))
+            ymin, ymax = int(min(y_coords)), int(max(y_coords))
 
-            x1 = max(0, int(x_min * w) - 20)
-            y1 = max(0, int(y_min * h) - 20)
-            x2 = min(w, int(x_max * w) + 20)
-            y2 = min(h, int(y_max * h) + 20)
+            # add padding around hand
+            pad = 60
+            xmin, xmax = max(0, xmin - pad), min(w, xmax + pad)
+            ymin, ymax = max(0, ymin - pad), min(h, ymax + pad)
 
-            # Crop and preprocess the hand image
-            hand_img = frame[y1:y2, x1:x2]
-            if hand_img.size == 0:
+            # crop hand
+            hand_img = frame[ymin:ymax, xmin:xmax]
+            if hand_img.size == 0 or hand_img.shape[0] < 20 or hand_img.shape[1] < 20:
                 continue
 
-            hand_img = cv2.resize(hand_img, (64, 64))
-            hand_img = hand_img / 255.0
-            hand_img = np.expand_dims(hand_img, axis=0)
+            # preprocess for model
+            hand_img_resized = cv2.resize(hand_img, (IMG_SIZE, IMG_SIZE))
+            hand_img_norm = np.expand_dims(hand_img_resized / 255.0, axis=0)
 
-            # Predict gesture
-            prediction = model.predict(hand_img)
-            pred_class = np.argmax(prediction)
-            pred_label = labels[pred_class]
-            confidence = np.max(prediction)
+            # prediction
+            preds = model.predict(hand_img_norm, verbose=0)
+            class_id = int(np.argmax(preds))
+            label = labels[str(class_id)]
+            conf = float(np.max(preds)) * 100
 
-            print(f"Predicted: {pred_label}, Confidence: {confidence:.2f}")
+            # draw rectangle + label
+            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+            cv2.putText(frame, f"{label} {conf:.1f}%",
+                        (xmin, ymin - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.9, (0, 255, 0), 2)
 
-            # Draw bounding box
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            # draw landmarks
+            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-            # Show label only if confidence > threshold
-            if confidence > 0.7:
-                cv2.putText(frame, f"{pred_label} ({confidence*100:.1f}%)",
-                            (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                            (0, 255, 0), 2)
-            else:
-                cv2.putText(frame, "Not Confident",
-                            (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                            (0, 0, 255), 2)
+            # show cropped hand (debug window)
+            cv2.imshow("Cropped Hand", cv2.resize(hand_img_resized, (200, 200)))
 
-            # Draw landmarks
-            mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+    cv2.imshow("Hand Gesture Recognition (MobileNetV2)", frame)
 
-    # Display frame
-    cv2.imshow("Sign Language Detection", frame)
-
-    # Press ESC to exit
+    # ESC key to quit
     if cv2.waitKey(1) & 0xFF == 27:
         break
 
