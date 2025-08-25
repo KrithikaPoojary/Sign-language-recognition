@@ -1,6 +1,7 @@
 import cv2
 import os
 import mediapipe as mp
+<<<<<<< HEAD
 
 # -------------------------------
 # Settings
@@ -25,6 +26,33 @@ hands = mp_hands.Hands(
     max_num_hands=1,
     min_detection_confidence=0.6,
     min_tracking_confidence=0.6
+=======
+import numpy as np
+import json
+
+# --- Configuration ---
+DATA_DIR = "data"
+LABELS_FILE = "labels.json"
+TARGET_IMAGE_SIZE = 64
+TOTAL_IMAGES_PER_GESTURE = 50
+BOUNDING_BOX_MARGIN = 30
+COUNTDOWN_SECONDS = 3
+
+# Load existing labels if available
+if os.path.exists(LABELS_FILE):
+    with open(LABELS_FILE, "r") as f:
+        labels = json.load(f)
+else:
+    labels = []
+
+# Initialize MediaPipe Hand detector
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=2,
+    min_detection_confidence=0.7,
+    min_tracking_confidence=0.7
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 )
 mp_drawing = mp.solutions.drawing_utils
 
@@ -35,9 +63,14 @@ cap = cv2.VideoCapture(0)
 current_gesture = None
 img_count = 0
 
+<<<<<<< HEAD
 print("Press 1-5 to select gesture:")
 print("1 = good, 2 = i_love_u, 3 = namaste, 4 = nice, 5 = yes")
 print("Press 'q' to stop saving and quit.")
+=======
+def collect_gesture_data():
+    """Collects images for one gesture and updates labels.json."""
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 
 while True:
     ret, frame = cap.read()
@@ -47,7 +80,21 @@ while True:
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = hands.process(rgb)
 
+<<<<<<< HEAD
     key = cv2.waitKey(1) & 0xFF
+=======
+    # Update labels.json if new gesture
+    if gesture_name not in labels:
+        labels.append(gesture_name)
+        with open(LABELS_FILE, "w") as f:
+            json.dump(labels, f)
+        print(f"✅ Added '{gesture_name}' to {LABELS_FILE}")
+
+    # Count existing images
+    existing_images = len([f for f in os.listdir(gesture_path) if f.endswith(".jpg")])
+    print(f"Found {existing_images} existing images for '{gesture_name}'.")
+    print(f"Target: {TOTAL_IMAGES_PER_GESTURE} images.")
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 
     # Select gesture key
     if key == ord('1'):
@@ -75,8 +122,15 @@ while True:
             x_coords = [lm.x * w for lm in hand_landmarks.landmark]
             y_coords = [lm.y * h for lm in hand_landmarks.landmark]
 
+<<<<<<< HEAD
             xmin, xmax = int(min(x_coords)), int(max(x_coords))
             ymin, ymax = int(min(y_coords)), int(max(y_coords))
+=======
+            for hand_landmarks in hand_results.multi_hand_landmarks:
+                mp_draw.draw_landmarks(display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                x_coords.extend([lm.x for lm in hand_landmarks.landmark])
+                y_coords.extend([lm.y for lm in hand_landmarks.landmark])
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
 
@@ -91,7 +145,60 @@ while True:
             cv2.putText(frame, f"{current_gesture}: {img_count}/{MAX_IMAGES}",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
+<<<<<<< HEAD
     cv2.imshow("Dataset Capture", frame)
 
 cap.release()
 cv2.destroyAllWindows()
+=======
+                hand_img_raw = segmented_frame[y_min:y_max, x_min:x_max]
+
+                if start_saving and hand_img_raw.size > 0:
+                    if count < TOTAL_IMAGES_PER_GESTURE:
+                        try:
+                            resized = cv2.resize(hand_img_raw, (TARGET_IMAGE_SIZE, TARGET_IMAGE_SIZE))
+                            img_path = os.path.join(gesture_path, f"{count}.jpg")
+                            cv2.imwrite(img_path, resized)
+                            count += 1
+                        except cv2.error as e:
+                            print(f"Could not save image: {e}")
+                    else:
+                        start_saving = False
+                        print(f"🎯 Target {TOTAL_IMAGES_PER_GESTURE} images reached for '{gesture_name}'.")
+
+        # Overlay text
+        status_text = f"Collected: {count}/{TOTAL_IMAGES_PER_GESTURE}"
+        cv2.putText(display_frame, status_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+        if not start_saving and not countdown_active:
+            cv2.putText(display_frame, "Press 'S' to start saving...", (10, 70),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        elif countdown_active:
+            remaining = int(COUNTDOWN_SECONDS - (time.time() - countdown_start_time))
+            if remaining > 0:
+                cv2.putText(display_frame, f"Saving in: {remaining}...", (10, 70),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 3)
+            else:
+                countdown_active = False
+                start_saving = True
+                print("✅ Saving started!")
+        elif start_saving:
+            cv2.putText(display_frame, "SAVING IMAGES...", (display_frame.shape[1] - 250, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+        cv2.imshow("Collecting Gesture Images", display_frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('s') and not start_saving and not countdown_active:
+            countdown_active = True
+            countdown_start_time = time.time()
+        elif key == ord('q') or (start_saving and count >= TOTAL_IMAGES_PER_GESTURE):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    print(f"\n✅ Collection complete for '{gesture_name}'. Total images: {count}")
+
+if __name__ == "__main__":
+    collect_gesture_data()
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695

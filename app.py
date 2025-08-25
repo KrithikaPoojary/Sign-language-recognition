@@ -3,6 +3,9 @@ import sqlite3
 import os
 import base64
 from tensorflow.keras.models import load_model
+import subprocess
+import json
+from tensorflow.keras.models import load_model  # type: ignore
 import numpy as np
 import cv2
 from PIL import Image
@@ -11,8 +14,15 @@ import mediapipe as mp
 import json
 
 app = Flask(__name__)
+<<<<<<< HEAD
 app.secret_key = "secret123"
 db_path = "users.db"
+=======
+app.secret_key = "secret123"  # ⚠️ In production, use a strong env variable
+db_path = "users.db"
+model_path = "gesture_model.h5"
+labels_path = "labels.json"
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 
 # -----------------------------
 # Model + Labels
@@ -22,10 +32,25 @@ LABELS_JSON = "labels.json"
 
 model, labels = None, {}
 try:
+<<<<<<< HEAD
     model = load_model(MODEL_PATH)
     with open(LABELS_JSON, "r") as f:
         labels = json.load(f)
     print("✅ Model & labels loaded")
+=======
+    if os.path.exists(model_path):
+        model = load_model(model_path)
+
+        # ✅ Load labels from JSON
+        if os.path.exists(labels_path):
+            with open(labels_path, "r") as f:
+                labels = json.load(f)
+            print(f"Loaded labels: {labels}")
+        else:
+            raise FileNotFoundError("labels.json not found. Please run train_model.py again.")
+    else:
+        print("Model file not found after attempted training.")
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 except Exception as e:
     print(f"❌ Error loading model: {e}")
 
@@ -107,6 +132,7 @@ def predict_frame():
         img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
         results = hands.process(img_rgb)
 
+<<<<<<< HEAD
         predicted_label, confidence = "No Hand", 0.0
 
         if results.multi_hand_landmarks:
@@ -114,6 +140,20 @@ def predict_frame():
             for hand_landmarks in results.multi_hand_landmarks:
                 x_coords = [lm.x * w for lm in hand_landmarks.landmark]
                 y_coords = [lm.y * h for lm in hand_landmarks.landmark]
+=======
+        with mp.solutions.hands.Hands(
+            static_image_mode=True,
+            max_num_hands=1,
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.7
+        ) as hands_processor:
+            hand_results = hands_processor.process(img_rgb_mp)
+
+        with mp.solutions.selfie_segmentation.SelfieSegmentation(
+            model_selection=1
+        ) as selfie_segmentation_processor:
+            segmentation_results = selfie_segmentation_processor.process(img_rgb_mp)
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 
                 xmin, xmax = int(min(x_coords)), int(max(x_coords))
                 ymin, ymax = int(min(y_coords)), int(max(y_coords))
@@ -135,6 +175,26 @@ def predict_frame():
 
                 predicted_label = labels[str(class_id)] if str(class_id) in labels else "Unknown"
 
+<<<<<<< HEAD
+=======
+                if hand_img_cropped.size > 0:
+                    TARGET_IMAGE_SIZE = 64
+                    img_resized = cv2.resize(hand_img_cropped, (TARGET_IMAGE_SIZE, TARGET_IMAGE_SIZE))
+                    img_normalized = img_resized / 255.0
+                    img_input = np.expand_dims(img_normalized, axis=0)
+
+                    prediction = model.predict(img_input, verbose=0)
+                    predicted_class_index = np.argmax(prediction)
+                    confidence = float(np.max(prediction))
+
+                    if confidence > 0.7 and 0 <= predicted_class_index < len(labels):
+                        predicted_label = labels[predicted_class_index]
+                    else:
+                        predicted_label = "Not confident"
+                else:
+                    predicted_label = "Hand Cropping Failed"
+
+>>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
         return jsonify({'label': predicted_label, 'confidence': confidence})
 
     except Exception as e:
