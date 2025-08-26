@@ -1,69 +1,41 @@
 from flask import Flask, render_template, request, redirect, session, jsonify
 import sqlite3
 import os
-import base64
-from tensorflow.keras.models import load_model
-import subprocess
 import json
-from tensorflow.keras.models import load_model  # type: ignore
+from tensorflow.keras.models import load_model
 import numpy as np
 import cv2
+import base64
 from PIL import Image
 import io
 import mediapipe as mp
-import json
 
 app = Flask(__name__)
-<<<<<<< HEAD
-app.secret_key = "secret123"
+app.secret_key = "secret123"  # change to env variable in production
 db_path = "users.db"
-=======
-app.secret_key = "secret123"  # ⚠️ In production, use a strong env variable
-db_path = "users.db"
-model_path = "gesture_model.h5"
-labels_path = "labels.json"
->>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
 
 # -----------------------------
-# Model + Labels
+# Model & Labels
 # -----------------------------
 MODEL_PATH = "mobilenet_gesture.h5"
-LABELS_JSON = "labels.json"
+LABELS_PATH = "labels.json"
 
-model, labels = None, {}
+model = None
+labels = {}
+
 try:
-<<<<<<< HEAD
-    model = load_model(MODEL_PATH)
-    with open(LABELS_JSON, "r") as f:
-        labels = json.load(f)
-    print("✅ Model & labels loaded")
-=======
-    if os.path.exists(model_path):
-        model = load_model(model_path)
+    if os.path.exists(MODEL_PATH) and os.path.exists(LABELS_PATH):
+        model = load_model(MODEL_PATH)
 
-        # ✅ Load labels from JSON
-        if os.path.exists(labels_path):
-            with open(labels_path, "r") as f:
-                labels = json.load(f)
-            print(f"Loaded labels: {labels}")
-        else:
-            raise FileNotFoundError("labels.json not found. Please run train_model.py again.")
+        with open(LABELS_PATH, "r") as f:
+            labels = json.load(f)   # dict { "0": "Good", "1": "Hello", ... }
+
+        print("✅ Model and labels loaded successfully")
     else:
-        print("Model file not found after attempted training.")
->>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
+        print("❌ Model or labels file missing")
 except Exception as e:
     print(f"❌ Error loading model: {e}")
-
-IMG_SIZE = 128
-
-# MediaPipe hands
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-    static_image_mode=True,
-    max_num_hands=1,
-    min_detection_confidence=0.7,
-    min_tracking_confidence=0.7
-)
+    model = None
 
 # -----------------------------
 # Database Init
@@ -86,6 +58,24 @@ init_db()
 def index():
     return redirect('/login')
 
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
+        with sqlite3.connect(db_path) as conn:
+            try:
+                conn.execute("INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+                             (name, email, password))
+                conn.commit()
+                return redirect('/login')
+            except sqlite3.IntegrityError:
+                return "❌ User with this email already exists."
+            except Exception as e:
+                return f"❌ Error during signup: {e}"
+    return render_template('signup.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -97,10 +87,16 @@ def login():
             row = cur.fetchone()
             if row:
                 session['user'] = row[0]
-                return redirect('/predict')
+                return redirect('/home')
             else:
                 return "❌ Invalid credentials"
     return render_template('login.html')
+
+@app.route('/home')
+def home():
+    if 'user' not in session:
+        return redirect('/login')
+    return render_template('home.html', name=session['user'])
 
 @app.route('/predict')
 def predict():
@@ -111,11 +107,11 @@ def predict():
 @app.route('/predict_frame', methods=['POST'])
 def predict_frame():
     if model is None or not labels:
-        return jsonify({'error': 'Model or labels not loaded'}), 500
+        return jsonify({'error': 'Model or labels not loaded on server'}), 500
 
     data = request.get_json()
     if 'image' not in data:
-        return jsonify({'error': 'No image data'}), 400
+        return jsonify({'error': 'No image data provided'}), 400
 
     try:
         # Decode base64 image
@@ -130,74 +126,50 @@ def predict_frame():
             img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
 
         img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-        results = hands.process(img_rgb)
 
-<<<<<<< HEAD
-        predicted_label, confidence = "No Hand", 0.0
-
-        if results.multi_hand_landmarks:
-            h, w, _ = img_np.shape
-            for hand_landmarks in results.multi_hand_landmarks:
-                x_coords = [lm.x * w for lm in hand_landmarks.landmark]
-                y_coords = [lm.y * h for lm in hand_landmarks.landmark]
-=======
+        # Detect hand with MediaPipe
         with mp.solutions.hands.Hands(
             static_image_mode=True,
             max_num_hands=1,
             min_detection_confidence=0.7,
             min_tracking_confidence=0.7
         ) as hands_processor:
-            hand_results = hands_processor.process(img_rgb_mp)
+            hand_results = hands_processor.process(img_rgb)
 
-        with mp.solutions.selfie_segmentation.SelfieSegmentation(
-            model_selection=1
-        ) as selfie_segmentation_processor:
-            segmentation_results = selfie_segmentation_processor.process(img_rgb_mp)
->>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
+        predicted_label = "No Hand Detected"
+        confidence = 0.0
 
-                xmin, xmax = int(min(x_coords)), int(max(x_coords))
-                ymin, ymax = int(min(y_coords)), int(max(y_coords))
+        if hand_results.multi_hand_landmarks:
+            for hand_landmarks in hand_results.multi_hand_landmarks:
+                h, w, _ = img_np.shape
+                x_coords = [lm.x for lm in hand_landmarks.landmark]
+                y_coords = [lm.y for lm in hand_landmarks.landmark]
 
-                pad = 40
-                xmin, xmax = max(0, xmin - pad), min(w, xmax + pad)
-                ymin, ymax = max(0, ymin - pad), min(h, ymax + pad)
+                x_min, y_min = int(min(x_coords) * w), int(min(y_coords) * h)
+                x_max, y_max = int(max(x_coords) * w), int(max(y_coords) * h)
 
-                hand_img = img_np[ymin:ymax, xmin:xmax]
-                if hand_img.size == 0:
-                    continue
+                margin = 30
+                x_min, y_min = max(x_min - margin, 0), max(y_min - margin, 0)
+                x_max, y_max = min(x_max + margin, w), min(y_max + margin, h)
 
-                hand_img = cv2.resize(hand_img, (IMG_SIZE, IMG_SIZE))
-                hand_img = np.expand_dims(hand_img / 255.0, axis=0)
+                hand_img = img_np[y_min:y_max, x_min:x_max]
 
-                preds = model.predict(hand_img, verbose=0)
-                class_id = int(np.argmax(preds))
-                confidence = float(np.max(preds))
-
-                predicted_label = labels[str(class_id)] if str(class_id) in labels else "Unknown"
-
-<<<<<<< HEAD
-=======
-                if hand_img_cropped.size > 0:
-                    TARGET_IMAGE_SIZE = 64
-                    img_resized = cv2.resize(hand_img_cropped, (TARGET_IMAGE_SIZE, TARGET_IMAGE_SIZE))
+                if hand_img.size > 0:
+                    TARGET_SIZE = 128  # match training size
+                    img_resized = cv2.resize(hand_img, (TARGET_SIZE, TARGET_SIZE))
                     img_normalized = img_resized / 255.0
                     img_input = np.expand_dims(img_normalized, axis=0)
 
                     prediction = model.predict(img_input, verbose=0)
-                    predicted_class_index = np.argmax(prediction)
+                    predicted_index = int(np.argmax(prediction))
                     confidence = float(np.max(prediction))
 
-                    if confidence > 0.7 and 0 <= predicted_class_index < len(labels):
-                        predicted_label = labels[predicted_class_index]
-                    else:
-                        predicted_label = "Not confident"
-                else:
-                    predicted_label = "Hand Cropping Failed"
+                    predicted_label = labels.get(str(predicted_index), "Unknown")
 
->>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
         return jsonify({'label': predicted_label, 'confidence': confidence})
 
     except Exception as e:
+        print(f"Error processing frame: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/logout')
@@ -205,5 +177,8 @@ def logout():
     session.clear()
     return redirect('/login')
 
+# -----------------------------
+# Run App
+# -----------------------------
 if __name__ == '__main__':
     app.run(debug=True)
