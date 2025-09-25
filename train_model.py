@@ -2,8 +2,6 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import json
 import os
-<<<<<<< HEAD
-
 # -------------------------------
 # Settings
 # -------------------------------
@@ -47,8 +45,6 @@ img_size = 128  # MobileNetV2 expects 96+, using 128 for better accuracy
 X, y = [], []
 labels = sorted(os.listdir(data_dir))
 labels = [label for label in labels if os.path.isdir(os.path.join(data_dir, label))]
->>>>>>> 53b77cdd1a8797ac3e1e6ca9261c7552fe43e695
-
 train_gen = datagen.flow_from_directory(
     DATA_DIR,
     target_size=(IMG_SIZE, IMG_SIZE),
@@ -81,7 +77,6 @@ base_model = tf.keras.applications.MobileNetV2(
     include_top=False,
     weights="imagenet"
 )
-=======
 print(f"Loading dataset from '{data_dir}' with labels: {labels}...")
 total_images_loaded = 0
 for label in labels:

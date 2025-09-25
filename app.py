@@ -71,9 +71,9 @@ def signup():
                 conn.commit()
                 return redirect('/login')
             except sqlite3.IntegrityError:
-                return "❌ User with this email already exists."
+                return "User with this email already exists."
             except Exception as e:
-                return f"❌ Error during signup: {e}"
+                return f" Error during signup: {e}"
     return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -89,7 +89,7 @@ def login():
                 session['user'] = row[0]
                 return redirect('/home')
             else:
-                return "❌ Invalid credentials"
+                return "Invalid credentials"
     return render_template('login.html')
 
 @app.route('/home')
